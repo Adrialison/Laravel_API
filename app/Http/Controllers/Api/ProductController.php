@@ -15,10 +15,16 @@ class ProductController extends Controller
     {
         $products = Product::with(['category', 'brand', 'variants', 'images'])->get();
 
-        // Convertir ruta de imagen a URL pública
         $products->each(function ($product) {
+
+            // Imagen principal
+            $product->imagen = $product->imagen
+                ? '/' . ltrim(Storage::url($product->imagen), '/')
+                : null;
+
+            // Imágenes múltiples
             $product->images->transform(function ($image) {
-                $image->imagen = Storage::url($image->imagen);
+                $image->imagen = '/' . ltrim(Storage::url($image->imagen), '/');
                 return $image;
             });
         });
@@ -44,7 +50,7 @@ class ProductController extends Controller
         // Guardar imágenes
         if ($request->hasFile('imagenes')) {
             foreach ($request->file('imagenes') as $file) {
-                $path = $file->store('products', 'public'); // Se guardan en storage/app/public/products
+                $path = $file->store('products', 'public');
                 ProductImage::create([
                     'idProduct' => $product->idProduct,
                     'imagen' => $path
@@ -52,31 +58,39 @@ class ProductController extends Controller
             }
         }
 
-        // Cargar imágenes con URLs públicas
+        // Convertir URLs
         $product->load('images');
         $product->images->transform(function ($image) {
-            $image->imagen = Storage::url($image->imagen);
+            $image->imagen = '/' . ltrim(Storage::url($image->imagen), '/');
             return $image;
         });
+
+        $product->imagen = $product->imagen
+            ? '/' . ltrim(Storage::url($product->imagen), '/')
+            : null;
 
         return response()->json($product, 201);
     }
 
-    // Mostrar un producto específico con todas sus imágenes
+    // Mostrar un producto específico
     public function show($id)
     {
         $product = Product::with(['category', 'brand', 'variants', 'images'])->findOrFail($id);
 
-        // Convertir ruta a URL pública
+        // Convertir rutas
+        $product->imagen = $product->imagen
+            ? '/' . ltrim(Storage::url($product->imagen), '/')
+            : null;
+
         $product->images->transform(function ($image) {
-            $image->imagen = Storage::url($image->imagen);
+            $image->imagen = '/' . ltrim(Storage::url($image->imagen), '/');
             return $image;
         });
 
         return response()->json($product);
     }
 
-    // Actualizar un producto y agregar nuevas imágenes
+    // Actualizar producto
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
@@ -93,10 +107,9 @@ class ProductController extends Controller
 
         $product->update($validated);
 
-        // Guardar nuevas imágenes si se envían
         if ($request->hasFile('imagenes')) {
             foreach ($request->file('imagenes') as $file) {
-                $path = $file->store('products', 'public'); // Se guardan en storage/app/public/products
+                $path = $file->store('products', 'public');
                 ProductImage::create([
                     'idProduct' => $product->idProduct,
                     'imagen' => $path
@@ -104,22 +117,26 @@ class ProductController extends Controller
             }
         }
 
-        // Cargar imágenes con URLs públicas
+        // Convertir rutas
         $product->load('images');
+
+        $product->imagen = $product->imagen
+            ? '/' . ltrim(Storage::url($product->imagen), '/')
+            : null;
+
         $product->images->transform(function ($image) {
-            $image->imagen = Storage::url($image->imagen);
+            $image->imagen = '/' . ltrim(Storage::url($image->imagen), '/');
             return $image;
         });
 
         return response()->json($product);
     }
 
-    // Eliminar un producto y todas sus imágenes
+    // Eliminar producto
     public function destroy($id)
     {
         $product = Product::with('images')->findOrFail($id);
 
-        // Eliminar imágenes físicas y registros
         foreach ($product->images as $image) {
             Storage::disk('public')->delete($image->imagen);
             $image->delete();
